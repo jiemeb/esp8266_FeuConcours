@@ -12,7 +12,7 @@
 #include <EasyNTPClient.h>
 #include <WiFiUdp.h>
 #include <WiFiClient.h>
-#include <WiFiManager.h>
+//#include <WiFiManager.h>
 #include "sequence.h"
 #include "feuConcours.h"
 #include <ArduinoJson.h>
