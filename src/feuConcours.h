@@ -2,14 +2,16 @@
 #include <iostream>
 using namespace std;
 
-#define port_multicast 9999
+#define port_multicast 5687
 
 
 class feuConcours
 {
 private:
 	/* data */
-IPAddress multicast_ip_addr=IPAddress(224, 0, 1, 3);
+IPAddress broadcast_ip_addr = IPAddress(255, 255, 255, 255); // Broadcast address
+//IPAddress broadcast_ip_addr=IPAddress(192,168,0,255);
+
 String  AdressOfFriend = "";
 long last_milli;
 unsigned int indexPas ;

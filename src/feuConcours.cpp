@@ -9,6 +9,7 @@
 #include <RemoteDebug.h>
 #include <WiFiUdp.h>
 
+
 #include "getFileLine.h"
 #include "feuConcours.h"
 #include "automate.h"
@@ -46,9 +47,9 @@ void feuConcours::setup()
 	minute = 1000;
 	start = false ;
 	initFile();
-	// Start listen UDP client
-	int status=udpReceive.beginMulticast(WiFi.localIP(),multicast_ip_addr,port_multicast);
-	Debug.printf("retour BeginMulticast %d \r\n",status);
+	// Start listen UDP client broadcast
+	int status = udpReceive.begin(port_multicast);
+	Debug.printf("retour BeginBroadcast %d \r\n", status);
 	udpSendToAll("whoIsHere?");
 }
 
@@ -105,8 +106,10 @@ void feuConcours::live()
 				else
 				{ // We are in the end
 					run = false;
-					indexPas = 0;
 					setKlaxon(false);
+					
+					indexPas = 0;
+					
 				}
 			}
 		}
@@ -150,12 +153,14 @@ void feuConcours::setKlaxon(boolean stat)
 {
 #ifdef FRIEND
 	if (run)
-		digitalWrite(t_out[3], true);			
+	{	digitalWrite(t_out[3], true);	
+		Debug.println("klaxon on");	}	
 	else
-		digitalWrite(t_out[3], false);		
-
+	{		digitalWrite(t_out[3], false);		
+		Debug.println("klaxon off");}
 #else
 	digitalWrite(t_out[3], stat);
+		Debug.printf("klaxon %s\n\r", stat ? "on" : "off");
 #endif
 }
 void feuConcours::setAB(boolean ab)
@@ -312,21 +317,25 @@ if (packetSize)
   }
 char tempo [16] ;
 char  value [40];
+Debug.printf("Reception %s \n\r",incomingPacket);
  sscanf(incomingPacket,"%s %s",tempo,value) ;
   String orderR =tempo ;
  // Get Order from receive message
   if(!orderR.compareTo("start") )
   {
 	run = true;
+	udpSendToAll("getOrder") ;
   }
    if(!orderR.compareTo("stop") )
   {
 	nextSequence();
+	udpSendToAll("getOrder") ;
   }
-  if(!orderR.compareTo("whoIsHere?"))
-	udpSendToAll(DEVICE_NAME) ;
+  
+  	if(!orderR.compareTo("whoIsHere?"))
+		udpSendToAll(DEVICE_NAME) ;
 
- if(!orderR.compareTo("feuxFriend"))
+ 	if(!orderR.compareTo("feuxFriend"))
 	{
 		if (orderR.compareTo(DEVICE_NAME))
 			AdressOfFriend = udpReceive.remoteIP().toString();
@@ -340,14 +349,17 @@ char  value [40];
 }
 }
 void feuConcours::udpSendToAll(String Order){
-	int status =udpSend.beginPacketMulticast(multicast_ip_addr,port_multicast,WiFi.localIP());
+	// Send broadcast packet
+	int status = udpSend.beginPacket(broadcast_ip_addr, port_multicast);
+
+	delay(100);
 	if(status == 0)
 		Debug.println("Begin erreur");
-	if ( udpSend.write(Order.c_str(),Order.length())<=0)
+	if (udpSend.write(Order.c_str(), Order.length()) <= 0)
 		Debug.println("erreur send");
-	status =udpSend.endPacket();
-		if(status == 0)
+	status = udpSend.endPacket();
+	if(status == 0)
 		Debug.println("EndPacket erreur");
 
-	//Debug.println("SendMulticast");
+	Debug.println("SendBroadcast");
 }

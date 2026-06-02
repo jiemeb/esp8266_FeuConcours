@@ -92,10 +92,10 @@ void setup(void)
   wdt_enable(WDTO_8S);
 #endif
 
-
- #ifdef FRIEND 
-
-// Friend Code 
+#define TRUE
+#ifdef TRUE 
+/*
+// Friend Code in 
   WiFiManager wm;
   bool res;
 //Friend Code
@@ -112,8 +112,21 @@ void setup(void)
     // if you get here you have connected to the WiFi
     Serial.println("connected...yeey :)");
   }
-// End friend Code
-  #else
+// End friend Code  */
+// SSID & Password
+const char* ssid = "feuxConcours";  // Enter your SSID here
+const char* password = "abcdefgh";  //Enter your Password here
+    Debug.printf("Connecting to %s ", ssid);
+    WiFi.begin(ssid, password);
+    while (WiFi.status() != WL_CONNECTED)
+    {
+    delay(500);
+    Debug.print(".");
+    }
+    Debug.println("connected");
+
+#else
+
 
 // SSID & Password
 const char* ssid = "feuxConcours";  // Enter your SSID here
@@ -127,7 +140,7 @@ IPAddress subnet(255, 255, 255, 0);
  WiFi.softAP(ssid, password);
  WiFi.softAPConfig(local_ip, gateway, subnet);
 
-  #endif
+#endif
 
   // Setup OTA
 
@@ -230,6 +243,7 @@ if(timeLoop > 10 )
     // A.live();
     // S.live();
     holdTimerSecond = newSecond;
+  //   F.udpSendToAll("live");
   }
 
 #ifdef BONJOUR_SUPPORT

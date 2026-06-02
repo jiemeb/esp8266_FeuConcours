@@ -10,7 +10,7 @@
 #include <ArduinoOTA.h>
 #include <RemoteDebug.h>
 //extern NTPClient timeClient ;
-extern EasyNTPClient timeClient;
+//extern EasyNTPClient timeClient;
 
 //NTPClient timeClient(ntpUDP, "europe.pool.ntp.org", 7200, 300000);
 #include  "sendResult.h"
@@ -66,7 +66,7 @@ int   i;
 		case SET_TIME :
   			time (&tt);
     //    timeClient.update();
-        tt= timeClient.getUnixTime();
+     //   tt= timeClient.getUnixTime();
 			  s_time = localtime(&tt);
 
    // 	   ibuf[1] = jee_id_all;
@@ -110,7 +110,7 @@ int   i;
 
 	   time ( &tt );
 //      timeClient.update();
-      tt= timeClient.getUnixTime();
+  //    tt= timeClient.getUnixTime();
 			tt -= ANTI_BOUCLE_TIME ; // Could event went 4 second before
 			volatile int k;
       	uint8_t card ;
@@ -233,8 +233,8 @@ int   i;
 
 		case TIME_CALIBRATION :
 //    timeClient.update();
-    tt= timeClient.getUnixTime();
-  	//		time (&tt);
+    //tt= timeClient.getUnixTime();
+  			time (&tt);
   //      s_time =   timeClient.G;
 			s_time = localtime(&tt);
 	//		   ibuf[1] = jee_id_all;
@@ -349,7 +349,7 @@ void sendResult(uint8_t *obuf,volatile int len)
    time_t tt;
    struct  tm *s_time;
 
-        tt= timeClient.getUnixTime();
+         time(&tt);
 	         	sprintf(tempo,"%s", ctime(&tt));
             DEBUG_PRINT(tempo);
 	         	sprintf(tempo,"\n %d bytes sendResult ", len);
@@ -382,9 +382,9 @@ void sendResult(uint8_t *obuf,volatile int len)
 				{
 
 				   DEBUG_PRINT("Set time ");
-		  			//time (&tt);
+		  			time (&tt);
 //            timeClient.update();
-            tt= timeClient.getUnixTime();
+          //  tt= timeClient.getUnixTime();
 				s_time = localtime(&tt);
 	//			ibuf[1] = jee_id_all ; // for all
 				ibuf[0]= 0 ;
