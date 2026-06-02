@@ -1,0 +1,6 @@
+{
+    "clangd.arguments": [
+        "--compile-commands-dir=/home/jm/Arduino266/esp8266_muliticast/.cache/clangd",
+        "--query-driver=/home/jm/.platformio/packages/toolchain-*/bin/*,/home/jm/.platformio/packages/tool-*/bin/*"
+    ]
+}

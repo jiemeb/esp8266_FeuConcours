@@ -2,41 +2,48 @@
 
 //#define BONJOUR_SUPPORT
 #include "Esp8266_FeuConcours.h"
-#include <Arduino.h>
 #include <ESP8266WiFi.h>
 #ifdef BONJOUR_SUPPORT
 #include <ESP8266mDNS.h>
 #endif
 #include <time.h>
 #include <ESP8266WebServer.h>
-#include <EasyNTPClient.h>
+//#include <EasyNTPClient.h>
 #include <WiFiUdp.h>
 #include <WiFiClient.h>
 //#include <WiFiManager.h>
 #include "sequence.h"
 #include "feuConcours.h"
 #include <ArduinoJson.h>
-#include <string>
+#include <LittleFS.h>
+#include <ArduinoOTA.h>
+#include <WiFiUdp.h>
+#include <RemoteDebug.h>
+
+
+
+#include "automate.h"
+#include "sendResult.h"
+#include "event_domoticz.h"
+
+
+
+
+
+
+
 
 extern void order();
 extern void getLog();
 
 extern void getData();
 extern void initFile();
-
-#include <ArduinoOTA.h>
-#include <WiFiUdp.h>
-#include <RemoteDebug.h>
-#include <LittleFS.h>
-
-#include "automate.h"
-#include "sendResult.h"
-#include "event_domoticz.h"
+extern void setupFSBrowser();
 
 #define DEBUG
 
 // Extern Object
-extern void setupFSBrowser(void);
+//extern void setupFSBrowser(void);
 RemoteDebug Debug;
 
 // #define DEBUG_BEGIN(x)    debugSerialTX.begin(x)
@@ -65,7 +72,7 @@ MDNSResponder mdns;
 #endif
 
 WiFiUDP ntpUDP;
-EasyNTPClient timeClient(ntpUDP, "fr.pool.ntp.org", 7200, 360000);
+//EasyNTPClient timeClient(ntpUDP, "fr.pool.ntp.org", 7200, 360000);
 uint8_t cardID;
 #define LogSize 15
 String Log[LogSize];
@@ -92,28 +99,22 @@ void setup(void)
   wdt_enable(WDTO_8S);
 #endif
 
+//#define TRUE
+#ifdef TRUE 
 
- #ifdef FRIEND 
+const char* ssid = "feuxConcours";  // Enter your SSID here
+const char* password = "abcdefgh";  //Enter your Password here
+    Debug.printf("Connecting to %s ", ssid);
+    WiFi.begin(ssid, password);
+    while (WiFi.status() != WL_CONNECTED)
+    {
+    delay(500);
+    Debug.print(".");
+    }
+    Debug.println("connected");
 
-// Friend Code 
-  WiFiManager wm;
-  bool res;
-//Friend Code
-  // res = wm.autoConnect("AutoConnectAP"); // anonymous ap
-  res = wm.autoConnect("AutoConnectAP"); // password protected ap
-  //res=wm.startConfigPortal("AutoConnectAP", "password"); // password protected ap
-  if (!res)
-  {
-    Serial.println("Failed to connect");
-    // ESP.restart();
-  }
-  else
-  {
-    // if you get here you have connected to the WiFi
-    Serial.println("connected...yeey :)");
-  }
-// End friend Code
-  #else
+#else
+
 
 // SSID & Password
 const char* ssid = "feuxConcours";  // Enter your SSID here
@@ -124,10 +125,11 @@ IPAddress local_ip(192, 168, 0, 2);
 IPAddress gateway(192, 168, 0, 2);
 IPAddress subnet(255, 255, 255, 0);
 
+ //WiFi.softAP(ssid, password,2,false,5);
  WiFi.softAP(ssid, password);
  WiFi.softAPConfig(local_ip, gateway, subnet);
 
-  #endif
+#endif
 
   // Setup OTA
 
@@ -168,7 +170,7 @@ IPAddress subnet(255, 255, 255, 0);
   server.begin();
 
   Debug.begin(DEVICE_NAME);
-  setupFSBrowser();
+  setupFSBrowser(); 
   event_domoticz_init();
 
  // tt = timeClient.getUnixTime();
@@ -230,6 +232,7 @@ if(timeLoop > 10 )
     // A.live();
     // S.live();
     holdTimerSecond = newSecond;
+  //   F.udpSendToAll("live");
   }
 
 #ifdef BONJOUR_SUPPORT
@@ -365,6 +368,7 @@ String getPage()
   page += "<style> body { background-color: #fffff; font-family: Arial, Helvetica, Sans-Serif; Color: #000088; font-size: 60px; text-align: center;}";
   page += (".button { background-color: #4CAF50; border-radius: 8px; color: white; font-size: 80px ; padding: 16px 80px;}");
   page += (".button2 { background-color: #f44336; border-radius: 8px; color: white;font-size: 80px ; padding: 16px 80px;}");
+  page += (".button3 { background-color: #111010; border-radius: 8px; color: white;font-size: 80px ; padding: 16px 80px;}");
   page += ("text-decoration: none; font-size: 80px; margin: 2px; cursor: pointer;}</style>");
   page += "</head><body><h3>ESP8266 Feux JM</h3>";
 
@@ -378,8 +382,13 @@ String getPage()
   page += "<button class= 'button' type='submit' name = 'start' value='start' > Start </button >";
   page += "&nbsp ";
   page += "<button  class= 'button2' type='submit' name ='stop' value='stop' > Stop </button>";
+  page += "&nbsp ";
   page += "<br><br><br>";
-  page += "<INPUT type='submit' value='Actualiser'>";
+  page += "<button  class= 'button3' type='submit' name ='whoishere' value='whoishere' > Who is here ? </button>";
+  page += "<br><br><br>";
+  page += "<INPUT type='submit' name = 'Parameter' value='Parameter'>";
+  page += "<br><br><br>";
+  page += "Friend "+ F.AdressOfFriend+"  Feux "+F.AdressOfFeux;
   page += "</form>";
   page += "<br><br>";
   page += "</body></html>";
@@ -409,11 +418,13 @@ String getRunFile()
   // Get file for init  put it in html
 
  Dir dir = LittleFS.openDir("/conf");
+
 while (dir.next()) {
   if (dir.isFile())
   {  
     String nameFile =(dir.fileName());
-    
+    //Debug.printf("File %s \n\r",nameFile.c_str());  
+
    page +=   " <div class=\"form-check form-check-inline\">";
    page +=   " <input class=\"form-check-input\" type=\"radio\" name=\"Fichier\" value=\"/conf/" ;
    page += nameFile;
@@ -439,12 +450,20 @@ void startInitFile()
   f.write(filename.c_str(), filename.length());
   f.close() ;
 
-if(server.arg("fromFriend").isEmpty())
- { 
-  String temps = "/orderFriend?fromFriend=yes&Fichier=";
-  temps += filename.c_str();
-  F.sendToFriend(temps);
- }
+   if(F.AdressOfFriend != "")
+    { 
+      String temps = "/orderFriend?fromFriend=yes&Fichier=";
+      temps += filename.c_str();
+      F.sendToFriend(F.AdressOfFriend, temps);
+    }
+
+    if(F.AdressOfFeux != "")
+    { 
+      String temps = "/orderFriend?fromFriend=yes&Fichier=";
+      temps += filename.c_str();
+      F.sendToFriend(F.AdressOfFeux, temps);
+    }
+  
   
   String messageR = "";
   F.initFile();
@@ -457,24 +476,42 @@ void startFeux()
 {
   String Start = "";
   String Stop = "";
+  String whoishere = "";
   Start = server.arg("start");
   Stop = server.arg("stop");
+  whoishere = server.arg("whoishere");
+  if(!server.arg("Parameter").isEmpty())
+  {
+    Debug.println("StartFeux Parameter");
+    rootParam(); // Handle parameter update
+  } 
   if (!Start.compareTo("start"))
   {
     startSequence = true ;
+    F.udpSendToAll("start");
    // F.run = true;
-   // F.sendToFriend("/orderFriend?order=start");
+   
 #ifdef DEBUG
     Debug.println("StartFeux start");
 #endif
   }
+
   if (!Stop.compareTo("stop"))
   {
-    F.nextSequence();
+    F.udpSendToAll("stop");
+   // F.nextSequence();
 #ifdef DEBUG
     Debug.println("StartFeux stop");
 #endif
-    F.sendToFriend("/orderFriend?order=stop");
+    
+  }
+
+  if (!whoishere.compareTo("whoishere"))
+  {
+    F.udpSendToAll("whoIsHere?");
+#ifdef DEBUG
+    Debug.println("StartFeux whoishere");
+#endif
   }
   server.send(200, "text/html", getPage());
 }

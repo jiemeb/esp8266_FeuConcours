@@ -9,6 +9,7 @@
 #include <RemoteDebug.h>
 #include <WiFiUdp.h>
 
+
 #include "getFileLine.h"
 #include "feuConcours.h"
 #include "automate.h"
@@ -23,6 +24,8 @@ extern HTTPClient http;
 
 WiFiUDP  udpReceive;
 WiFiUDP  udpSend;
+
+
 char incomingPacket[256];
 
 enum FEUX
@@ -43,18 +46,55 @@ void feuConcours::setup()
 	tempsSequence = 0;
 	setKlaxon(false);
 	etatKlaxon = false;
+	etatStart=false;
+	etatStop=false;	
+
 	minute = 1000;
 	start = false ;
 	initFile();
-	// Start listen UDP client
-	int status=udpReceive.beginMulticast(WiFi.localIP(),multicast_ip_addr,port_multicast);
-	Debug.printf("retour BeginMulticast %d \r\n",status);
+	// Start listen UDP client broadcast
+	int status = udpReceive.begin(port_multicast);
+	Debug.printf("retour BeginBroadcast %d \r\n", status);
 	udpSendToAll("whoIsHere?");
 }
 
 void feuConcours::live()
 {
 	udpHandle();
+
+	if (digitalRead(t_in[bitStart]) == LOW) // Button is pressed
+	{
+		if (etatStart)
+		{	
+			udpSendToAll("start");
+			run = true; // Start sequene telecommande etat ru pour web
+			etatStart = false;
+			Debug.println("Start button pressed");
+		}
+	}else
+	{
+			if (!etatStart)
+		{
+			etatStart = true;
+			Debug.println("Start button released");
+		}
+	}
+	if (digitalRead(t_in[bitStop]) == LOW) // Button stop is pressed
+	{
+		if (etatStop)
+		{
+			udpSendToAll("stop");
+			etatStop = false;
+			Debug.println("Stop button pressed");
+		}
+	}else
+	{
+			if (!etatStop)
+		{
+			etatStop = true;
+			Debug.println("Stop button released");
+		}
+	}
 	if (run)
 	{ // Run concours
 		long delta = millis() - last_milli;
@@ -259,19 +299,19 @@ void feuConcours::nextSequence()
 		run = true;
 }
 
-void feuConcours::sendToFriend(String url)
+void feuConcours::sendToFriend(String address,String url)
 
 {
 #ifdef DEBUG
 	Debug.print("connecting to ");
-	Debug.println(AdressOfFriend);
+	Debug.println(address);
 	Debug.print("Requesting URL: ");
 	Debug.println(url);
 #endif
-if(!AdressOfFriend.isEmpty())
+if(!address.isEmpty())
 {
 
-	http.begin(client, AdressOfFriend, sendToPort, url);
+	http.begin(client, address, sendToPort, url);
 	int httpCode = http.GET();
 	if (httpCode)
 	{
@@ -296,8 +336,8 @@ if(!AdressOfFriend.isEmpty())
 #endif
 	http.end();
 }
-else
-		udpSendToAll("whoIsHere?"); // where is my friend ?
+
+
 }
 void feuConcours::udpHandle()
 {
@@ -312,42 +352,47 @@ if (packetSize)
   }
 char tempo [16] ;
 char  value [40];
+Debug.printf("Reception %s \n\r",incomingPacket);
  sscanf(incomingPacket,"%s %s",tempo,value) ;
   String orderR =tempo ;
  // Get Order from receive message
   if(!orderR.compareTo("start") )
   {
 	run = true;
+	udpSendToAll("getOrder") ;
   }
    if(!orderR.compareTo("stop") )
   {
-	nextSequence();
+		nextSequence();
+	udpSendToAll("getOrder") ;
   }
+  
   if(!orderR.compareTo("whoIsHere?"))
 	udpSendToAll(DEVICE_NAME) ;
 
- if(!orderR.compareTo("feuxFriend"))
+ if(orderR.compareTo("feuxFriend"))
 	{
-		if (orderR.compareTo(DEVICE_NAME))
 			AdressOfFriend = udpReceive.remoteIP().toString();
 	}
-	if(!orderR.compareTo("feux"))
+	if(orderR.compareTo("feux"))
 	{
-		if (orderR.compareTo(DEVICE_NAME))
-			AdressOfFriend = udpReceive.remoteIP().toString();
+			AdressOfFeux = udpReceive.remoteIP().toString();
 	}
 
 }
 }
 void feuConcours::udpSendToAll(String Order){
-	int status =udpSend.beginPacketMulticast(multicast_ip_addr,port_multicast,WiFi.localIP());
+	// Send broadcast packet
+	int status = udpSend.beginPacket(broadcast_ip_addr, port_multicast);
+
+	delay(100);
 	if(status == 0)
 		Debug.println("Begin erreur");
-	if ( udpSend.write(Order.c_str(),Order.length())<=0)
+	if (udpSend.write(Order.c_str(), Order.length()) <= 0)
 		Debug.println("erreur send");
-	status =udpSend.endPacket();
-		if(status == 0)
+	status = udpSend.endPacket();
+	if(status == 0)
 		Debug.println("EndPacket erreur");
 
-	//Debug.println("SendMulticast");
+	Debug.println("SendBroadcast");
 }
